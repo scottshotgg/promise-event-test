@@ -5,7 +5,7 @@ var MongoClient = require('mongodb').MongoClient;
   // Connect to the db    
   MongoClient.connect("mongodb://localhost:27017/test", function(err, mdb) {
 	if(!err) {
-		mainEventLoop.emit('connected', {mdb: mdb});
+		mainEventLoop.emit('connected', { mdb: mdb });
 
     } else {
       console.log(err);
@@ -15,33 +15,17 @@ var MongoClient = require('mongodb').MongoClient;
 })();
 
 
-function resolve(promise) {
-	Promise.resolve(promise)
-		.then((data) => {
-			mainEventLoop.emit('found', {data: data});
-		})
-		.catch((err) => {
-			console.log(err);
-		});
-}
-
-
-function connected(packet) {
-	console.log(packet);
-	var testcoll = packet.mdb.collection('test');
-	console.log()
-	resolve(testcoll.findOne({}));
-}
-
-function found(packet) {
-	console.log(packet.data);
-}
-
-
 // Using the event-loop for the software architecture
 const EventEmitter = require('events');
 class EventLoop extends EventEmitter {}
 const mainEventLoop = new EventLoop();
+
+var insertAmount = 0;
+
+
+// replace these
+var testcoll;
+var mdb;
 
 // Provide a mapping for the event-loop's event-function associations; look at the function to know what to send it
 eventLoopFunctions = {
@@ -54,9 +38,11 @@ eventLoopFunctions = {
 	//'newOppo'		: newOppo
 	//'client': client
 	'connected': connected,
-	'found': found
-
+	'success': success,
+	'insert': insert,
+	'close': close
 };
+
 
 // Function to seperate event-loop's event-function association loading from main
 (function loadEventLoopFunction() {
@@ -66,3 +52,70 @@ eventLoopFunctions = {
     });
   });
 })();
+
+
+function res(dater) {
+	console.log(dater);
+}
+
+
+function rej(dater) {
+	console.log(dater);
+}
+
+
+// Might be able to make this more general with a signature/ID that tells the event loop what it is
+function resolve(promise, res, rej) {
+	console.log();
+
+	Promise.resolve(promise)
+		.then((data) => {
+			if(res)
+				res(data);
+			else
+				mainEventLoop.emit('success', { data: data });
+		})
+		.catch((err) => {
+			if(rej)
+				rej(err);
+			else
+				mainEventLoop.emit('error', { data: err });
+		});
+}
+
+
+function close() {
+	console.log('closing...')
+	mdb.close();
+}
+
+
+
+// Put testcoll here for now, but make an object later
+function insert(data) {
+	insertAmount++;
+	resolve(data.collection.insert(data.data));
+}
+
+
+function connected(packet) {
+	console.log(packet.mdb);
+	mdb = packet.mdb;
+	testcoll = packet.mdb.collection('test');
+	//resolve(testcoll.findOne({}), (dater) => { console.log(dater); }, (err) => { console.log(err); });
+	//resolve(testcoll.findOne({}), (data) => { mainEventLoop.emit('found', { data: data }) }, (err) => { console.log(err); });
+	//resolve(testcoll.findOne({}));
+	for(var x = 0; x < 100; x++)
+		mainEventLoop.emit('insert', { collection: testcoll, data: { name: 'secondtest', data: 'second.test_data' } } );
+	// might just be able to put the close here
+
+}
+
+function success(packet) {
+	console.log(packet);
+	insertAmount--;
+
+	if(!insertAmount)
+		mainEventLoop.emit('close');
+}
+
