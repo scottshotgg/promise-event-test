@@ -107,7 +107,9 @@ function connected(packet) {
 	//resolve(testcoll.findOne({}));
 	for(var x = 0; x < 100; x++)
 		mainEventLoop.emit('insert', { collection: testcoll, data: { name: 'secondtest', data: 'second.test_data' } } );
+	
 	// might just be able to put the close here
+	mainEventLoop.emit('close');
 
 }
 
@@ -115,7 +117,7 @@ function success(packet) {
 	console.log(packet);
 	insertAmount--;
 
-	if(!insertAmount)
-		mainEventLoop.emit('close');
+	//if(!insertAmount)
+	//	mainEventLoop.emit('close');
 }
 
